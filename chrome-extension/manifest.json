@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "LaTeX for Gmail",
+  "description": "Use LaTeX with Gmail.",
+  "version": "0.1",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "https://mail.google.com/"
+  ],
+  "background": {
+    "page": "src/background.html"
+  }
+}
