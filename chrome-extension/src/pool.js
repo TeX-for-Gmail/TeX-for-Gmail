@@ -66,11 +66,12 @@ class Pool {
   }
 
   processHelper(task) {
+    let self = this;
     let resource = this.resourcePool.pop();
     this.initialize(resource);
     return task(resource).finally(() => {
-      if (this.autoRelease)
-        this.release(resource);
+      if (self.autoRelease)
+        self.release(resource);
     });
   }
 

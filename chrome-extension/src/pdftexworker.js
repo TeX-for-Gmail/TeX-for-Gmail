@@ -34,14 +34,14 @@ function compileHelper(pdflatexModule, srcCode) {
   return pdfFile;
 }
 
-comm.messageHandler.compile = async function ({ srcCode }) {
+async function compile({ srcCode }) {
   try {
     let pdfFile = await memPool.process(mem => pdflatexMod({ 'wasmMemory': mem })
       .then(m => compileHelper(m, srcCode)));
 
     return {
       code: Communicator.SUCCESS,
-      payload: { pdfFile: pdfFile },
+      payload: { pdfFile: pdfFile }, // pdfFile is an Uint8Array
       transferList: [pdfFile.buffer]
     };
   } catch (ex) {
@@ -51,3 +51,5 @@ comm.messageHandler.compile = async function ({ srcCode }) {
     };
   }
 }
+
+comm.messageHandler.compile = compile;
