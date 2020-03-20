@@ -34,28 +34,20 @@ function compileHelper(pdflatexModule, srcCode) {
   return pdfFile;
 }
 
-function compile({ srcCode }) {
-  return memPool.process(mem => pdflatexMod({ 'wasmMemory': mem }).then(m => compileHelper(m, srcCode)));
-}
-
-// See communicator.js for the structure of event
-function processMessage(event) {
-  let eventData = event.data;
+comm.messageHandler.compile = async function ({ srcCode }) {
   try {
-    switch (eventData.payload.cmd) {
-      case "compile": // params for compile is of the form {srcCode: "..."}
-        compile(eventData.payload.params)
-          .then(res => comm.reply(event, comm.SUCCESS, { "pdfFile": res }, [res.buffer]));
-        break;
-    }
-  } catch (err) {
-    comm.reply(event, comm.FAILURE, { err: err });
+    let pdfFile = await memPool.process(mem => pdflatexMod({ 'wasmMemory': mem })
+      .then(m => compileHelper(m, srcCode)));
+
+    return {
+      code: Communicator.SUCCESS,
+      payload: { pdfFile: pdfFile },
+      transferList: [pdfFile.buffer]
+    };
+  } catch (ex) {
+    return {
+      code: Communicator.FAILURE,
+      payload: { err: ex.toString() }
+    };
   }
 }
-
-addEventListener("message", event => processMessage(event));
-
-
-// onmessage = function(event) {
-//   console.log(event);
-// }
