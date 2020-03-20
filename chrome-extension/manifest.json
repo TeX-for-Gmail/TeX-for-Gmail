@@ -11,5 +11,8 @@
   ],
   "background": {
     "page": "src/background.html"
-  }
+  },
+  "web_accessible_resources": [
+    "resources/wasm/pdflatex.wasm"
+  ]
 }
