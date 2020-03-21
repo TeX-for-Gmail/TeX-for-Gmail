@@ -1,3 +1,7 @@
+"use strict";
+
+let thisFile = "pdftexworker.js";
+
 importScripts("../resources/scripts/pdflatex.js");
 importScripts("pool.js");
 importScripts("communicator.js");
@@ -47,7 +51,7 @@ async function compile({ srcCode }) {
   } catch (ex) {
     return {
       code: Communicator.FAILURE,
-      payload: { err: ex.toString() }
+      payload: { err: ex.toString(), location: `${thisFile}, pdf2png` }
     };
   }
 }
