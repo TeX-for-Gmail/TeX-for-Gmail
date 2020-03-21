@@ -1,7 +1,5 @@
 "use strict";
 
-let thisFile = "mupdfworker.js";
-
 importScripts("../resources/scripts/libmupdf.js");
 importScripts("communicator.js");
 
@@ -34,7 +32,7 @@ async function pdf2png({ pdfFile, scale, pageNo }) {
   } catch (ex) {
     return {
       code: Communicator.FAILURE,
-      payload: { err: ex, location: `${thisFile}, pdf2png` }
+      payload: { err: ex, location: `mupdfworker.js, pdf2png` }
     };
   }
 }

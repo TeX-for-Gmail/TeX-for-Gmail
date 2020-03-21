@@ -1,7 +1,5 @@
 "use strict";
 
-let thisFile = "communicator.js";
-
 /* A request event looks like this. `data` is the part we put into postMessage.
 event = {
   ...
@@ -113,9 +111,9 @@ class Communicator {
       try {
         Promise.resolve(this.messageHandler[event.data.payload.cmd](event.data.payload.params))
           .then(res => self.reply(event, res.code, res.payload, res.transferList))
-          .catch(err => self.reply(event, Communicator.FAILURE, { err: err, location: `${thisFile}, handleMessage` }));
+          .catch(err => self.reply(event, Communicator.FAILURE, { err: err, location: `communicator.js, handleMessage` }));
       } catch (ex) {
-        self.reply(event, Communicator.FAILURE, { err: ex, location: `${thisFile}, handleMessage` });
+        self.reply(event, Communicator.FAILURE, { err: ex, location: `communicator.js, handleMessage` });
       }
     else if (event.data.code === Communicator.POST)
       Promise.resolve(this.messageHandler[event.data.payload.cmd](event.data.payload.params))
