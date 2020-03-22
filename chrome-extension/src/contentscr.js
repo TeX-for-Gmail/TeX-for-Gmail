@@ -1,7 +1,11 @@
 "use strict";
 
-let port = chrome.runtime.connect({ name: `${Math.round(Math.random() * Math.pow(2, 64))}` });
+let port = chrome.runtime.connect({ name: `${random_id(64)}` });
 let comm = new Communicator(new PortWrapper(port));
+
+async function getBackgroundPageStatus() {
+  return comm.request("getStatus", {});
+}
 
 async function receiveUrl(req) {
   let res = await req();
@@ -20,4 +24,4 @@ async function compile2pdfURL(srcCode, params) {
   return receiveUrl(() => comm.request("compile2pdfURL", { srcCode: srcCode, params: params }));
 }
 
-console.log(compile2pngURL("\\documentclass{article}\\begin{document}Test222\\end{document}", 2));
+compile2pngURL("\\documentclass{article}\\begin{document}Test222\\end{document}", 2).then(res => console.log(res));

@@ -21,6 +21,7 @@
       ],
       "document_idle": "document_idle",
       "js": [
+        "src/utils.js",
         "src/communicator.js",
         "src/portwrapper.js",
         "src/contentscr.js"

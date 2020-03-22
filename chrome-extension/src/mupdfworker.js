@@ -1,6 +1,7 @@
 "use strict";
 
 importScripts("../resources/scripts/libmupdf.js");
+importScripts("utils.js")
 importScripts("communicator.js");
 
 let thisWorker = self;
@@ -10,7 +11,7 @@ let comm = new Communicator(thisWorker);
 async function pdf2png({ pdfFile, scale, pageNo }) {
   try {
     pageNo = pageNo ? pageNo : 1;
-    let fileName = `${Math.round(Math.random() * Math.pow(2, 64))}`;
+    let fileName = `${random_id(64)}`;
     FS.writeFile(fileName, pdfFile);
     var dataUrl;
     var pdfDoc;

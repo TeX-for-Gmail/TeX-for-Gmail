@@ -3,22 +3,63 @@
 console.log("Welcome to LaTeX for Gmail!");
 
 var ports = {};
+var pdftexWorkerPool;
+var mupdfWorkerPool;
 
-let pdftexWorkerPool = new Pool({
-  count: 2,
-  cons: () => new Communicator(new Worker('pdftexworker.js', { 'name': 'pdftexworker' })),
-  autoRelease: true,
-  initialize: () => { },
-  multiplier: 2
-});
+function setupWorkerPools() {
+  setupPdftexWorkerPool({ count: 2, multiplier: 1 });
+  setupMupdfWorkerPool({ count: 2, multiplier: 4 });
+}
 
-let mupdfWorkerPool = new Pool({
-  count: 2,
-  cons: () => new Communicator(new Worker('mupdfworker.js', { 'name': 'mupdfworker' })),
-  autoRelease: true,
-  initialize: () => { },
-  multiplier: 4
-});
+function getStatus() {
+  return {
+    code: Communicator.SUCCESS,
+    payload: {
+      pdftexWorkerPool: {
+        destroyed: pdftexWorkerPool.destroyed,
+        count: pdftexWorkerPool.realPool.length,
+        multiplier: pdftexWorkerPool.multiplier
+      },
+      mupdfWorkerPool: {
+        destroyed: mupdfWorkerPool.destroyed,
+        count: mupdfWorkerPool.realPool.length,
+        multiplier: mupdfWorkerPool.multiplier
+      }
+    }
+  }
+}
+
+function setupPdftexWorkerPool({ count, multiplier }) {
+  pdftexWorkerPool = new Pool({
+    name: "pdftexWorkerPool",
+    count: count,
+    cons: () => new Communicator(new Worker('pdftexworker.js', { 'name': `pdftexworker-${random_id(16)}` })),
+    free: comm => comm.target.terminate(),
+    autoRelease: true,
+    initialize: () => { },
+    multiplier: multiplier
+  });
+}
+
+function setupMupdfWorkerPool({ count, multiplier }) {
+  mupdfWorkerPool = new Pool({
+    name: "mupdfWorkerPool",
+    count: count,
+    cons: () => new Communicator(new Worker('mupdfworker.js', { 'name': `mupdfworker-${random_id(16)}` })),
+    free: comm => comm.target.terminate(),
+    autoRelease: true,
+    initialize: () => { },
+    multiplier: multiplier
+  });
+}
+
+function destroyPdftexWorkerPool() {
+  pdftexWorkerPool.destroy();
+}
+
+function destroyMupdfWorkerPool() {
+  mupdfWorkerPool.destroy();
+}
 
 async function compile(srcCode, params) {
   let res = await pdftexWorkerPool.process(comm => comm.request("compile", { srcCode: srcCode, params: params }));
@@ -59,15 +100,25 @@ function revokeUrl({ url }) {
   URL.revokeObjectURL(url);
 }
 
-chrome.runtime.onConnect.addListener(function (port) {
-  let comm = new Communicator(new PortWrapper(port));
-  ports[port.name] = comm;
-
+function setupMessageHandler(comm) {
+  comm.messageHandler.getStatus = getStatus;
+  comm.messageHandler.setupPdftexWorkerPool = setupPdftexWorkerPool;
+  comm.messageHandler.setupMupdfWorkerPool = setupMupdfWorkerPool
+  comm.messageHandler.destroyPdftexWorkerPool = destroyPdftexWorkerPool;
+  comm.messageHandler.destroyMupdfWorkerPool = destroyMupdfWorkerPool;
   comm.messageHandler.compile2pngURL = compile2pngURL;
   comm.messageHandler.compile2pdfURL = compile2pdfURL;
   comm.messageHandler.revokeUrl = revokeUrl;
+}
+
+chrome.runtime.onConnect.addListener(function (port) {
+  let comm = new Communicator(new PortWrapper(port));
+  ports[port.name] = comm;
+  setupMessageHandler(comm);
 
   port.onDisconnect.addListener(function () {
     delete ports[port.name];
   });
 });
+
+setupWorkerPools()
