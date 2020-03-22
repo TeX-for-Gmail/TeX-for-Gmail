@@ -1,11 +1,46 @@
 "use strict";
 
 importScripts("../resources/scripts/pdflatex.js");
+importScripts("../resources/scripts/browserfs.min.js");
 importScripts("pool.js");
 importScripts("communicator.js");
 
 let thisWorker = self;
 let comm = new Communicator(thisWorker);
+let bfsWindow = {};
+BrowserFS.install(bfsWindow);
+
+BrowserFS.configure({
+  fs: "CacheFS",
+  options: {
+    fast: {
+      fs: "AsyncMirror",
+      options: {
+        sync: {
+          fs: "InMemory"
+        },
+        async: {
+          fs: "IndexedDB",
+          options: {}
+        }
+      }
+    },
+    slow: {
+      fs: "XmlHttpRequest",
+      options: {
+        baseUrl: "https://cdn.jsdelivr.net/gh/TeX-for-Gmail/TeX-Live-Files@2019.0.2/texlive",
+        index: "../resources/data/index.json",
+        preferXHR: false
+      }
+    }
+  }
+}, function (e) {
+  if (e) throw e;
+  else {
+    bfsWindow.fs = BrowserFS.BFSRequire('fs');
+    console.log('BFS ready!');
+  }
+});
 
 // Memory pool to reduce pressure on GC and to avoid out of memory error
 let memPool = new Pool({

@@ -28,214 +28,47 @@ var Module = typeof pdflatex !== 'undefined' ? pdflatex : {};
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-
-if (!Module.expectedDataFileDownloads) {
-  Module.expectedDataFileDownloads = 0;
-  Module.finishedDataFileDownloads = 0;
-}
-Module.expectedDataFileDownloads++;
-(function() {
- var loadPackage = function(metadata) {
-
-    var PACKAGE_PATH;
-    if (typeof window === 'object') {
-      PACKAGE_PATH = window['encodeURIComponent'](window.location.pathname.toString().substring(0, window.location.pathname.toString().lastIndexOf('/')) + '/');
-    } else if (typeof location !== 'undefined') {
-      // worker
-      PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
-    } else {
-      throw 'using preloaded data can only be done on a web page or in a web worker';
-    }
-    var PACKAGE_NAME = 'pdflatex.data';
-    var REMOTE_PACKAGE_BASE = 'pdflatex.data';
-    if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
-      Module['locateFile'] = Module['locateFilePackage'];
-      err('warning: you defined Module.locateFilePackage, that has been renamed to Module.locateFile (using your locateFilePackage for now)');
-    }
-    var REMOTE_PACKAGE_NAME = Module['locateFile'] ? Module['locateFile'](REMOTE_PACKAGE_BASE, '') : REMOTE_PACKAGE_BASE;
-  
-    var REMOTE_PACKAGE_SIZE = metadata.remote_package_size;
-    var PACKAGE_UUID = metadata.package_uuid;
-  
-    function fetchRemotePackage(packageName, packageSize, callback, errback) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', packageName, true);
-      xhr.responseType = 'arraybuffer';
-      xhr.onprogress = function(event) {
-        var url = packageName;
-        var size = packageSize;
-        if (event.total) size = event.total;
-        if (event.loaded) {
-          if (!xhr.addedTotal) {
-            xhr.addedTotal = true;
-            if (!Module.dataFileDownloads) Module.dataFileDownloads = {};
-            Module.dataFileDownloads[url] = {
-              loaded: event.loaded,
-              total: size
-            };
-          } else {
-            Module.dataFileDownloads[url].loaded = event.loaded;
-          }
-          var total = 0;
-          var loaded = 0;
-          var num = 0;
-          for (var download in Module.dataFileDownloads) {
-          var data = Module.dataFileDownloads[download];
-            total += data.total;
-            loaded += data.loaded;
-            num++;
-          }
-          total = Math.ceil(total * Module.expectedDataFileDownloads/num);
-          if (Module['setStatus']) Module['setStatus']('Downloading data... (' + loaded + '/' + total + ')');
-        } else if (!Module.dataFileDownloads) {
-          if (Module['setStatus']) Module['setStatus']('Downloading data...');
-        }
-      };
-      xhr.onerror = function(event) {
-        throw new Error("NetworkError for: " + packageName);
-      }
-      xhr.onload = function(event) {
-        if (xhr.status == 200 || xhr.status == 304 || xhr.status == 206 || (xhr.status == 0 && xhr.response)) { // file URLs can return 0
-          var packageData = xhr.response;
-          callback(packageData);
-        } else {
-          throw new Error(xhr.statusText + " : " + xhr.responseURL);
-        }
-      };
-      xhr.send(null);
-    };
-
-    function handleError(error) {
-      console.error('package error:', error);
-    };
-  
-      var fetchedCallback = null;
-      var fetched = Module['getPreloadedPackage'] ? Module['getPreloadedPackage'](REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE) : null;
-      fetched = thisWorker.fetched;
-
-      if (!fetched) fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE, function(data) {
-        if (fetchedCallback) {
-          fetchedCallback(data);
-          fetchedCallback = null;
-        } else {
-          fetched = data;
-          thisWorker.fetched = fetched;
-        }
-      }, handleError);
-    
-  function runWithFS() {
-
-    function assert(check, msg) {
-      if (!check) throw msg + new Error().stack;
-    }
-
-    function DataRequest(start, end, audio) {
-      this.start = start;
-      this.end = end;
-      this.audio = audio;
-    }
-    DataRequest.prototype = {
-      requests: {},
-      open: function(mode, name) {
-        this.name = name;
-        this.requests[name] = this;
-        Module['addRunDependency']('fp ' + this.name);
-      },
-      send: function() {},
-      onload: function() {
-        var byteArray = this.byteArray.subarray(this.start, this.end);
-        this.finish(byteArray);
-      },
-      finish: function(byteArray) {
-        var that = this;
-
-        Module['FS_createDataFile'](this.name, null, byteArray, true, true, true); // canOwn this data in the filesystem, it is a slide into the heap that will never change
-        Module['removeRunDependency']('fp ' + that.name);
-
-        this.requests[this.name] = null;
-      }
-    };
-
-        var files = metadata.files;
-        for (var i = 0; i < files.length; ++i) {
-          new DataRequest(files[i].start, files[i].end, files[i].audio).open('GET', files[i].filename);
-        }
-
-  
-    function processPackageData(arrayBuffer) {
-      Module.finishedDataFileDownloads++;
-      assert(arrayBuffer, 'Loading data file failed.');
-      assert(arrayBuffer instanceof ArrayBuffer, 'bad input to processPackageData');
-      var byteArray = new Uint8Array(arrayBuffer);
-      var curr;
-      
-        // copy the entire loaded file into a spot in the heap. Files will refer to slices in that. They cannot be freed though
-        // (we may be allocating before malloc is ready, during startup).
-        var ptr = Module['getMemory'](byteArray.length);
-        Module['HEAPU8'].set(byteArray, ptr);
-        DataRequest.prototype.byteArray = Module['HEAPU8'].subarray(ptr, ptr+byteArray.length);
-  
-          var files = metadata.files;
-          for (var i = 0; i < files.length; ++i) {
-            DataRequest.prototype.requests[files[i].filename].onload();
-          }
-              Module['removeRunDependency']('datafile_pdflatex.data');
-
-    };
-    Module['addRunDependency']('datafile_pdflatex.data');
-  
-    if (!Module.preloadResults) Module.preloadResults = {};
-  
-      Module.preloadResults[PACKAGE_NAME] = {fromCache: false};
-      if (fetched) {
-        processPackageData(fetched);
-        fetched = null;
-      } else {
-        fetchedCallback = processPackageData;
-      }
-    
-  }
-  if (Module['calledRun']) {
-    runWithFS();
-  } else {
-    if (!Module['preRun']) Module['preRun'] = [];
-    Module["preRun"].push(runWithFS); // FS is not initialized yet, wait for it
-  }
-
- }
- loadPackage({"files": [{"start": 0, "audio": 0, "end": 2211, "filename": "/amsbsy.sty"}, {"start": 2211, "audio": 0, "end": 6372, "filename": "/amsgen.sty"}, {"start": 6372, "audio": 0, "end": 91465, "filename": "/amsmath.sty"}, {"start": 91465, "audio": 0, "end": 95581, "filename": "/amsopn.sty"}, {"start": 95581, "audio": 0, "end": 98013, "filename": "/amstext.sty"}, {"start": 98013, "audio": 0, "end": 110617, "filename": "/amsthm.sty"}, {"start": 110617, "audio": 0, "end": 130550, "filename": "/article.cls"}, {"start": 130550, "audio": 0, "end": 162533, "filename": "/cmb10.pfb"}, {"start": 162533, "audio": 0, "end": 163869, "filename": "/cmb10.tfm"}, {"start": 163869, "audio": 0, "end": 165177, "filename": "/cmbcsc10.tfm"}, {"start": 165177, "audio": 0, "end": 199970, "filename": "/cmbsy10.pfb"}, {"start": 199970, "audio": 0, "end": 201086, "filename": "/cmbsy10.tfm"}, {"start": 201086, "audio": 0, "end": 234910, "filename": "/cmbsy5.pfb"}, {"start": 234910, "audio": 0, "end": 236030, "filename": "/cmbsy5.tfm"}, {"start": 236030, "audio": 0, "end": 269410, "filename": "/cmbsy6.pfb"}, {"start": 269410, "audio": 0, "end": 270534, "filename": "/cmbsy6.tfm"}, {"start": 270534, "audio": 0, "end": 300602, "filename": "/cmbsy7.pfb"}, {"start": 300602, "audio": 0, "end": 301722, "filename": "/cmbsy7.tfm"}, {"start": 301722, "audio": 0, "end": 331129, "filename": "/cmbsy8.pfb"}, {"start": 331129, "audio": 0, "end": 332249, "filename": "/cmbsy8.tfm"}, {"start": 332249, "audio": 0, "end": 360066, "filename": "/cmbsy9.pfb"}, {"start": 360066, "audio": 0, "end": 361178, "filename": "/cmbsy9.tfm"}, {"start": 361178, "audio": 0, "end": 395989, "filename": "/cmbx10.pfb"}, {"start": 395989, "audio": 0, "end": 397317, "filename": "/cmbx10.tfm"}, {"start": 397317, "audio": 0, "end": 429397, "filename": "/cmbx12.pfb"}, {"start": 429397, "audio": 0, "end": 430721, "filename": "/cmbx12.tfm"}, {"start": 430721, "audio": 0, "end": 462755, "filename": "/cmbx5.pfb"}, {"start": 462755, "audio": 0, "end": 464087, "filename": "/cmbx5.tfm"}, {"start": 464087, "audio": 0, "end": 496465, "filename": "/cmbx6.pfb"}, {"start": 496465, "audio": 0, "end": 497809, "filename": "/cmbx6.tfm"}, {"start": 497809, "audio": 0, "end": 529816, "filename": "/cmbx7.pfb"}, {"start": 529816, "audio": 0, "end": 531152, "filename": "/cmbx7.tfm"}, {"start": 531152, "audio": 0, "end": 563318, "filename": "/cmbx8.pfb"}, {"start": 563318, "audio": 0, "end": 564650, "filename": "/cmbx8.tfm"}, {"start": 564650, "audio": 0, "end": 596948, "filename": "/cmbx9.pfb"}, {"start": 596948, "audio": 0, "end": 598276, "filename": "/cmbx9.tfm"}, {"start": 598276, "audio": 0, "end": 631544, "filename": "/cmbxsl10.pfb"}, {"start": 631544, "audio": 0, "end": 633076, "filename": "/cmbxsl10.tfm"}, {"start": 633076, "audio": 0, "end": 669630, "filename": "/cmbxti10.pfb"}, {"start": 669630, "audio": 0, "end": 671162, "filename": "/cmbxti10.tfm"}, {"start": 671162, "audio": 0, "end": 703163, "filename": "/cmcsc10.pfb"}, {"start": 703163, "audio": 0, "end": 704463, "filename": "/cmcsc10.tfm"}, {"start": 704463, "audio": 0, "end": 737420, "filename": "/cmcsc8.pfb"}, {"start": 737420, "audio": 0, "end": 738724, "filename": "/cmcsc8.tfm"}, {"start": 738724, "audio": 0, "end": 770666, "filename": "/cmcsc9.pfb"}, {"start": 770666, "audio": 0, "end": 771966, "filename": "/cmcsc9.tfm"}, {"start": 771966, "audio": 0, "end": 805055, "filename": "/cmdunh10.pfb"}, {"start": 805055, "audio": 0, "end": 806351, "filename": "/cmdunh10.tfm"}, {"start": 806351, "audio": 0, "end": 836602, "filename": "/cmex10.pfb"}, {"start": 836602, "audio": 0, "end": 837594, "filename": "/cmex10.tfm"}, {"start": 837594, "audio": 0, "end": 868051, "filename": "/cmex7.pfb"}, {"start": 868051, "audio": 0, "end": 869055, "filename": "/cmex7.tfm"}, {"start": 869055, "audio": 0, "end": 899328, "filename": "/cmex8.pfb"}, {"start": 899328, "audio": 0, "end": 900316, "filename": "/cmex8.tfm"}, {"start": 900316, "audio": 0, "end": 930528, "filename": "/cmex9.pfb"}, {"start": 930528, "audio": 0, "end": 931524, "filename": "/cmex9.tfm"}, {"start": 931524, "audio": 0, "end": 965511, "filename": "/cmff10.pfb"}, {"start": 965511, "audio": 0, "end": 966835, "filename": "/cmff10.tfm"}, {"start": 966835, "audio": 0, "end": 1001082, "filename": "/cmfi10.pfb"}, {"start": 1001082, "audio": 0, "end": 1002506, "filename": "/cmfi10.tfm"}, {"start": 1002506, "audio": 0, "end": 1035451, "filename": "/cmfib8.pfb"}, {"start": 1035451, "audio": 0, "end": 1036731, "filename": "/cmfib8.tfm"}, {"start": 1036731, "audio": 0, "end": 1045528, "filename": "/cminch.pfb"}, {"start": 1045528, "audio": 0, "end": 1046020, "filename": "/cminch.tfm"}, {"start": 1046020, "audio": 0, "end": 1072077, "filename": "/cmitt10.pfb"}, {"start": 1072077, "audio": 0, "end": 1072845, "filename": "/cmitt10.tfm"}, {"start": 1072845, "audio": 0, "end": 1109144, "filename": "/cmmi10.pfb"}, {"start": 1109144, "audio": 0, "end": 1110672, "filename": "/cmmi10.tfm"}, {"start": 1110672, "audio": 0, "end": 1147413, "filename": "/cmmi12.pfb"}, {"start": 1147413, "audio": 0, "end": 1148937, "filename": "/cmmi12.tfm"}, {"start": 1148937, "audio": 0, "end": 1186849, "filename": "/cmmi5.pfb"}, {"start": 1186849, "audio": 0, "end": 1188357, "filename": "/cmmi5.tfm"}, {"start": 1188357, "audio": 0, "end": 1225523, "filename": "/cmmi6.pfb"}, {"start": 1225523, "audio": 0, "end": 1227035, "filename": "/cmmi6.tfm"}, {"start": 1227035, "audio": 0, "end": 1263316, "filename": "/cmmi7.pfb"}, {"start": 1263316, "audio": 0, "end": 1264844, "filename": "/cmmi7.tfm"}, {"start": 1264844, "audio": 0, "end": 1300313, "filename": "/cmmi8.pfb"}, {"start": 1300313, "audio": 0, "end": 1301833, "filename": "/cmmi8.tfm"}, {"start": 1301833, "audio": 0, "end": 1337927, "filename": "/cmmi9.pfb"}, {"start": 1337927, "audio": 0, "end": 1339451, "filename": "/cmmi9.tfm"}, {"start": 1339451, "audio": 0, "end": 1376363, "filename": "/cmmib10.pfb"}, {"start": 1376363, "audio": 0, "end": 1377887, "filename": "/cmmib10.tfm"}, {"start": 1377887, "audio": 0, "end": 1418427, "filename": "/cmmib5.pfb"}, {"start": 1418427, "audio": 0, "end": 1419923, "filename": "/cmmib5.tfm"}, {"start": 1419923, "audio": 0, "end": 1458074, "filename": "/cmmib6.pfb"}, {"start": 1458074, "audio": 0, "end": 1459590, "filename": "/cmmib6.tfm"}, {"start": 1459590, "audio": 0, "end": 1498976, "filename": "/cmmib7.pfb"}, {"start": 1498976, "audio": 0, "end": 1500484, "filename": "/cmmib7.tfm"}, {"start": 1500484, "audio": 0, "end": 1535963, "filename": "/cmmib8.pfb"}, {"start": 1535963, "audio": 0, "end": 1537491, "filename": "/cmmib8.tfm"}, {"start": 1537491, "audio": 0, "end": 1574001, "filename": "/cmmib9.pfb"}, {"start": 1574001, "audio": 0, "end": 1575529, "filename": "/cmmib9.tfm"}, {"start": 1575529, "audio": 0, "end": 1611281, "filename": "/cmr10.pfb"}, {"start": 1611281, "audio": 0, "end": 1612577, "filename": "/cmr10.tfm"}, {"start": 1612577, "audio": 0, "end": 1645299, "filename": "/cmr12.pfb"}, {"start": 1645299, "audio": 0, "end": 1646587, "filename": "/cmr12.tfm"}, {"start": 1646587, "audio": 0, "end": 1678949, "filename": "/cmr17.pfb"}, {"start": 1678949, "audio": 0, "end": 1680241, "filename": "/cmr17.tfm"}, {"start": 1680241, "audio": 0, "end": 1712050, "filename": "/cmr5.pfb"}, {"start": 1712050, "audio": 0, "end": 1713270, "filename": "/cmr5.tfm"}, {"start": 1713270, "audio": 0, "end": 1746004, "filename": "/cmr6.pfb"}, {"start": 1746004, "audio": 0, "end": 1747304, "filename": "/cmr6.tfm"}, {"start": 1747304, "audio": 0, "end": 1780066, "filename": "/cmr7.pfb"}, {"start": 1780066, "audio": 0, "end": 1781366, "filename": "/cmr7.tfm"}, {"start": 1781366, "audio": 0, "end": 1814092, "filename": "/cmr8.pfb"}, {"start": 1814092, "audio": 0, "end": 1815384, "filename": "/cmr8.tfm"}, {"start": 1815384, "audio": 0, "end": 1849377, "filename": "/cmr9.pfb"}, {"start": 1849377, "audio": 0, "end": 1850669, "filename": "/cmr9.tfm"}, {"start": 1850669, "audio": 0, "end": 1885691, "filename": "/cmsl10.pfb"}, {"start": 1885691, "audio": 0, "end": 1887199, "filename": "/cmsl10.tfm"}, {"start": 1887199, "audio": 0, "end": 1921785, "filename": "/cmsl12.pfb"}, {"start": 1921785, "audio": 0, "end": 1923289, "filename": "/cmsl12.tfm"}, {"start": 1923289, "audio": 0, "end": 1957800, "filename": "/cmsl8.pfb"}, {"start": 1957800, "audio": 0, "end": 1959304, "filename": "/cmsl8.tfm"}, {"start": 1959304, "audio": 0, "end": 1993872, "filename": "/cmsl9.pfb"}, {"start": 1993872, "audio": 0, "end": 1995376, "filename": "/cmsl9.tfm"}, {"start": 1995376, "audio": 0, "end": 2025547, "filename": "/cmsltt10.pfb"}, {"start": 2025547, "audio": 0, "end": 2026319, "filename": "/cmsltt10.tfm"}, {"start": 2026319, "audio": 0, "end": 2050776, "filename": "/cmss10.pfb"}, {"start": 2050776, "audio": 0, "end": 2052092, "filename": "/cmss10.tfm"}, {"start": 2052092, "audio": 0, "end": 2076485, "filename": "/cmss12.pfb"}, {"start": 2076485, "audio": 0, "end": 2077809, "filename": "/cmss12.tfm"}, {"start": 2077809, "audio": 0, "end": 2102225, "filename": "/cmss17.pfb"}, {"start": 2102225, "audio": 0, "end": 2103545, "filename": "/cmss17.tfm"}, {"start": 2103545, "audio": 0, "end": 2127965, "filename": "/cmss8.pfb"}, {"start": 2127965, "audio": 0, "end": 2129261, "filename": "/cmss8.tfm"}, {"start": 2129261, "audio": 0, "end": 2153634, "filename": "/cmss9.pfb"}, {"start": 2153634, "audio": 0, "end": 2154954, "filename": "/cmss9.tfm"}, {"start": 2154954, "audio": 0, "end": 2183856, "filename": "/cmssbx10.pfb"}, {"start": 2183856, "audio": 0, "end": 2185128, "filename": "/cmssbx10.tfm"}, {"start": 2185128, "audio": 0, "end": 2214060, "filename": "/cmssdc10.pfb"}, {"start": 2214060, "audio": 0, "end": 2215388, "filename": "/cmssdc10.tfm"}, {"start": 2215388, "audio": 0, "end": 2240538, "filename": "/cmssi10.pfb"}, {"start": 2240538, "audio": 0, "end": 2242058, "filename": "/cmssi10.tfm"}, {"start": 2242058, "audio": 0, "end": 2267153, "filename": "/cmssi12.pfb"}, {"start": 2267153, "audio": 0, "end": 2268685, "filename": "/cmssi12.tfm"}, {"start": 2268685, "audio": 0, "end": 2293662, "filename": "/cmssi17.pfb"}, {"start": 2293662, "audio": 0, "end": 2295190, "filename": "/cmssi17.tfm"}, {"start": 2295190, "audio": 0, "end": 2320358, "filename": "/cmssi8.pfb"}, {"start": 2320358, "audio": 0, "end": 2321858, "filename": "/cmssi8.tfm"}, {"start": 2321858, "audio": 0, "end": 2346887, "filename": "/cmssi9.pfb"}, {"start": 2346887, "audio": 0, "end": 2348411, "filename": "/cmssi9.tfm"}, {"start": 2348411, "audio": 0, "end": 2376569, "filename": "/cmssq8.pfb"}, {"start": 2376569, "audio": 0, "end": 2377873, "filename": "/cmssq8.tfm"}, {"start": 2377873, "audio": 0, "end": 2407541, "filename": "/cmssqi8.pfb"}, {"start": 2407541, "audio": 0, "end": 2409037, "filename": "/cmssqi8.tfm"}, {"start": 2409037, "audio": 0, "end": 2441606, "filename": "/cmsy10.pfb"}, {"start": 2441606, "audio": 0, "end": 2442730, "filename": "/cmsy10.tfm"}, {"start": 2442730, "audio": 0, "end": 2475645, "filename": "/cmsy5.pfb"}, {"start": 2475645, "audio": 0, "end": 2476757, "filename": "/cmsy5.tfm"}, {"start": 2476757, "audio": 0, "end": 2509344, "filename": "/cmsy6.pfb"}, {"start": 2509344, "audio": 0, "end": 2510460, "filename": "/cmsy6.tfm"}, {"start": 2510460, "audio": 0, "end": 2543176, "filename": "/cmsy7.pfb"}, {"start": 2543176, "audio": 0, "end": 2544296, "filename": "/cmsy7.tfm"}, {"start": 2544296, "audio": 0, "end": 2576922, "filename": "/cmsy8.pfb"}, {"start": 2576922, "audio": 0, "end": 2578042, "filename": "/cmsy8.tfm"}, {"start": 2578042, "audio": 0, "end": 2610484, "filename": "/cmsy9.pfb"}, {"start": 2610484, "audio": 0, "end": 2611600, "filename": "/cmsy9.tfm"}, {"start": 2611600, "audio": 0, "end": 2640625, "filename": "/cmtcsc10.pfb"}, {"start": 2640625, "audio": 0, "end": 2641401, "filename": "/cmtcsc10.tfm"}, {"start": 2641401, "audio": 0, "end": 2670753, "filename": "/cmtex10.pfb"}, {"start": 2670753, "audio": 0, "end": 2671521, "filename": "/cmtex10.tfm"}, {"start": 2671521, "audio": 0, "end": 2696408, "filename": "/cmtex8.pfb"}, {"start": 2696408, "audio": 0, "end": 2697176, "filename": "/cmtex8.tfm"}, {"start": 2697176, "audio": 0, "end": 2726863, "filename": "/cmtex9.pfb"}, {"start": 2726863, "audio": 0, "end": 2727627, "filename": "/cmtex9.tfm"}, {"start": 2727627, "audio": 0, "end": 2765571, "filename": "/cmti10.pfb"}, {"start": 2765571, "audio": 0, "end": 2767051, "filename": "/cmti10.tfm"}, {"start": 2767051, "audio": 0, "end": 2803169, "filename": "/cmti12.pfb"}, {"start": 2803169, "audio": 0, "end": 2804653, "filename": "/cmti12.tfm"}, {"start": 2804653, "audio": 0, "end": 2841260, "filename": "/cmti7.pfb"}, {"start": 2841260, "audio": 0, "end": 2842752, "filename": "/cmti7.tfm"}, {"start": 2842752, "audio": 0, "end": 2878412, "filename": "/cmti8.pfb"}, {"start": 2878412, "audio": 0, "end": 2879916, "filename": "/cmti8.tfm"}, {"start": 2879916, "audio": 0, "end": 2916226, "filename": "/cmti9.pfb"}, {"start": 2916226, "audio": 0, "end": 2917702, "filename": "/cmti9.tfm"}, {"start": 2917702, "audio": 0, "end": 2948801, "filename": "/cmtt10.pfb"}, {"start": 2948801, "audio": 0, "end": 2949569, "filename": "/cmtt10.tfm"}, {"start": 2949569, "audio": 0, "end": 2973821, "filename": "/cmtt12.pfb"}, {"start": 2973821, "audio": 0, "end": 2974593, "filename": "/cmtt12.tfm"}, {"start": 2974593, "audio": 0, "end": 2998880, "filename": "/cmtt8.pfb"}, {"start": 2998880, "audio": 0, "end": 2999648, "filename": "/cmtt8.tfm"}, {"start": 2999648, "audio": 0, "end": 3028726, "filename": "/cmtt9.pfb"}, {"start": 3028726, "audio": 0, "end": 3029490, "filename": "/cmtt9.tfm"}, {"start": 3029490, "audio": 0, "end": 3062445, "filename": "/cmu10.pfb"}, {"start": 3062445, "audio": 0, "end": 3063721, "filename": "/cmu10.tfm"}, {"start": 3063721, "audio": 0, "end": 3093192, "filename": "/cmvtt10.pfb"}, {"start": 3093192, "audio": 0, "end": 3094440, "filename": "/cmvtt10.tfm"}, {"start": 3094440, "audio": 0, "end": 3106535, "filename": "/epstopdf-base.sty"}, {"start": 3106535, "audio": 0, "end": 3107213, "filename": "/epstopdf-sys.cfg"}, {"start": 3107213, "audio": 0, "end": 3114825, "filename": "/etexcmds.sty"}, {"start": 3114825, "audio": 0, "end": 3127361, "filename": "/euex10.pfb"}, {"start": 3127361, "audio": 0, "end": 3128169, "filename": "/euex10.tfm"}, {"start": 3128169, "audio": 0, "end": 3140272, "filename": "/euex7.pfb"}, {"start": 3140272, "audio": 0, "end": 3141080, "filename": "/euex7.tfm"}, {"start": 3141080, "audio": 0, "end": 3153134, "filename": "/euex8.pfb"}, {"start": 3153134, "audio": 0, "end": 3153942, "filename": "/euex8.tfm"}, {"start": 3153942, "audio": 0, "end": 3165931, "filename": "/euex9.pfb"}, {"start": 3165931, "audio": 0, "end": 3166743, "filename": "/euex9.tfm"}, {"start": 3166743, "audio": 0, "end": 3188089, "filename": "/eufb10.pfb"}, {"start": 3188089, "audio": 0, "end": 3189117, "filename": "/eufb10.tfm"}, {"start": 3189117, "audio": 0, "end": 3210729, "filename": "/eufb5.pfb"}, {"start": 3210729, "audio": 0, "end": 3211757, "filename": "/eufb5.tfm"}, {"start": 3211757, "audio": 0, "end": 3212785, "filename": "/eufb6.tfm"}, {"start": 3212785, "audio": 0, "end": 3234160, "filename": "/eufb7.pfb"}, {"start": 3234160, "audio": 0, "end": 3235188, "filename": "/eufb7.tfm"}, {"start": 3235188, "audio": 0, "end": 3236216, "filename": "/eufb8.tfm"}, {"start": 3236216, "audio": 0, "end": 3237244, "filename": "/eufb9.tfm"}, {"start": 3237244, "audio": 0, "end": 3258342, "filename": "/eufm10.pfb"}, {"start": 3258342, "audio": 0, "end": 3259382, "filename": "/eufm10.tfm"}, {"start": 3259382, "audio": 0, "end": 3280932, "filename": "/eufm5.pfb"}, {"start": 3280932, "audio": 0, "end": 3281972, "filename": "/eufm5.tfm"}, {"start": 3281972, "audio": 0, "end": 3283012, "filename": "/eufm6.tfm"}, {"start": 3283012, "audio": 0, "end": 3304263, "filename": "/eufm7.pfb"}, {"start": 3304263, "audio": 0, "end": 3305303, "filename": "/eufm7.tfm"}, {"start": 3305303, "audio": 0, "end": 3306343, "filename": "/eufm8.tfm"}, {"start": 3306343, "audio": 0, "end": 3307383, "filename": "/eufm9.tfm"}, {"start": 3307383, "audio": 0, "end": 3329777, "filename": "/eurb10.pfb"}, {"start": 3329777, "audio": 0, "end": 3330985, "filename": "/eurb10.tfm"}, {"start": 3330985, "audio": 0, "end": 3353949, "filename": "/eurb5.pfb"}, {"start": 3353949, "audio": 0, "end": 3355157, "filename": "/eurb5.tfm"}, {"start": 3355157, "audio": 0, "end": 3356365, "filename": "/eurb6.tfm"}, {"start": 3356365, "audio": 0, "end": 3379024, "filename": "/eurb7.pfb"}, {"start": 3379024, "audio": 0, "end": 3380232, "filename": "/eurb7.tfm"}, {"start": 3380232, "audio": 0, "end": 3381440, "filename": "/eurb8.tfm"}, {"start": 3381440, "audio": 0, "end": 3382648, "filename": "/eurb9.tfm"}, {"start": 3382648, "audio": 0, "end": 3405292, "filename": "/eurm10.pfb"}, {"start": 3405292, "audio": 0, "end": 3406520, "filename": "/eurm10.tfm"}, {"start": 3406520, "audio": 0, "end": 3429690, "filename": "/eurm5.pfb"}, {"start": 3429690, "audio": 0, "end": 3430918, "filename": "/eurm5.tfm"}, {"start": 3430918, "audio": 0, "end": 3432146, "filename": "/eurm6.tfm"}, {"start": 3432146, "audio": 0, "end": 3455073, "filename": "/eurm7.pfb"}, {"start": 3455073, "audio": 0, "end": 3456301, "filename": "/eurm7.tfm"}, {"start": 3456301, "audio": 0, "end": 3457529, "filename": "/eurm8.tfm"}, {"start": 3457529, "audio": 0, "end": 3458757, "filename": "/eurm9.tfm"}, {"start": 3458757, "audio": 0, "end": 3469429, "filename": "/eusb10.pfb"}, {"start": 3469429, "audio": 0, "end": 3470313, "filename": "/eusb10.tfm"}, {"start": 3470313, "audio": 0, "end": 3481074, "filename": "/eusb5.pfb"}, {"start": 3481074, "audio": 0, "end": 3481958, "filename": "/eusb5.tfm"}, {"start": 3481958, "audio": 0, "end": 3482842, "filename": "/eusb6.tfm"}, {"start": 3482842, "audio": 0, "end": 3493717, "filename": "/eusb7.pfb"}, {"start": 3493717, "audio": 0, "end": 3494601, "filename": "/eusb7.tfm"}, {"start": 3494601, "audio": 0, "end": 3495485, "filename": "/eusb8.tfm"}, {"start": 3495485, "audio": 0, "end": 3496369, "filename": "/eusb9.tfm"}, {"start": 3496369, "audio": 0, "end": 3506907, "filename": "/eusm10.pfb"}, {"start": 3506907, "audio": 0, "end": 3507803, "filename": "/eusm10.tfm"}, {"start": 3507803, "audio": 0, "end": 3518602, "filename": "/eusm5.pfb"}, {"start": 3518602, "audio": 0, "end": 3519498, "filename": "/eusm5.tfm"}, {"start": 3519498, "audio": 0, "end": 3520394, "filename": "/eusm6.tfm"}, {"start": 3520394, "audio": 0, "end": 3531049, "filename": "/eusm7.pfb"}, {"start": 3531049, "audio": 0, "end": 3531945, "filename": "/eusm7.tfm"}, {"start": 3531945, "audio": 0, "end": 3532841, "filename": "/eusm8.tfm"}, {"start": 3532841, "audio": 0, "end": 3533737, "filename": "/eusm9.tfm"}, {"start": 3533737, "audio": 0, "end": 3537615, "filename": "/everyshi.sty"}, {"start": 3537615, "audio": 0, "end": 3538839, "filename": "/graphics.cfg"}, {"start": 3538839, "audio": 0, "end": 3554111, "filename": "/graphics.sty"}, {"start": 3554111, "audio": 0, "end": 3563174, "filename": "/graphicx.sty"}, {"start": 3563174, "audio": 0, "end": 3570249, "filename": "/grfext.sty"}, {"start": 3570249, "audio": 0, "end": 3577573, "filename": "/ifluatex.sty"}, {"start": 3577573, "audio": 0, "end": 3578873, "filename": "/ifpdf.sty"}, {"start": 3578873, "audio": 0, "end": 3587126, "filename": "/infwarerr.sty"}, {"start": 3587126, "audio": 0, "end": 3589717, "filename": "/keyval.sty"}, {"start": 3589717, "audio": 0, "end": 3594869, "filename": "/kvdefinekeys.sty"}, {"start": 3594869, "audio": 0, "end": 3617286, "filename": "/kvoptions.sty"}, {"start": 3617286, "audio": 0, "end": 3631326, "filename": "/kvsetkeys.sty"}, {"start": 3631326, "audio": 0, "end": 4490257, "filename": "/latex.fmt"}, {"start": 4490257, "audio": 0, "end": 4508682, "filename": "/ltxcmds.sty"}, {"start": 4508682, "audio": 0, "end": 5367675, "filename": "/pdflatex.fmt"}, {"start": 5367675, "audio": 0, "end": 5385009, "filename": "/pdftex.def"}, {"start": 5385009, "audio": 0, "end": 5856012, "filename": "/pdftex.map"}, {"start": 5856012, "audio": 0, "end": 5876469, "filename": "/pdftexcmds.sty"}, {"start": 5876469, "audio": 0, "end": 5877395, "filename": "/pgf.cfg"}, {"start": 5877395, "audio": 0, "end": 5878485, "filename": "/pgf.sty"}, {"start": 5878485, "audio": 0, "end": 5899498, "filename": "/pgfcomp-version-0-65.sty"}, {"start": 5899498, "audio": 0, "end": 5900487, "filename": "/pgfcomp-version-1-18.sty"}, {"start": 5900487, "audio": 0, "end": 5901479, "filename": "/pgfcore.code.tex"}, {"start": 5901479, "audio": 0, "end": 5901889, "filename": "/pgfcore.sty"}, {"start": 5901889, "audio": 0, "end": 5945709, "filename": "/pgfcorearrows.code.tex"}, {"start": 5945709, "audio": 0, "end": 5965033, "filename": "/pgfcoreexternal.code.tex"}, {"start": 5965033, "audio": 0, "end": 5971071, "filename": "/pgfcoregraphicstate.code.tex"}, {"start": 5971071, "audio": 0, "end": 5978019, "filename": "/pgfcoreimage.code.tex"}, {"start": 5978019, "audio": 0, "end": 5982902, "filename": "/pgfcorelayers.code.tex"}, {"start": 5982902, "audio": 0, "end": 5985446, "filename": "/pgfcoreobjects.code.tex"}, {"start": 5985446, "audio": 0, "end": 6029641, "filename": "/pgfcorepathconstruct.code.tex"}, {"start": 6029641, "audio": 0, "end": 6046952, "filename": "/pgfcorepathprocessing.code.tex"}, {"start": 6046952, "audio": 0, "end": 6068254, "filename": "/pgfcorepathusage.code.tex"}, {"start": 6068254, "audio": 0, "end": 6077795, "filename": "/pgfcorepatterns.code.tex"}, {"start": 6077795, "audio": 0, "end": 6111151, "filename": "/pgfcorepoints.code.tex"}, {"start": 6111151, "audio": 0, "end": 6114116, "filename": "/pgfcorequick.code.tex"}, {"start": 6114116, "audio": 0, "end": 6119312, "filename": "/pgfcorerdf.code.tex"}, {"start": 6119312, "audio": 0, "end": 6140129, "filename": "/pgfcorescopes.code.tex"}, {"start": 6140129, "audio": 0, "end": 6175378, "filename": "/pgfcoreshade.code.tex"}, {"start": 6175378, "audio": 0, "end": 6197367, "filename": "/pgfcoretransformations.code.tex"}, {"start": 6197367, "audio": 0, "end": 6206209, "filename": "/pgfcoretransparency.code.tex"}, {"start": 6206209, "audio": 0, "end": 6229956, "filename": "/pgffor.code.tex"}, {"start": 6229956, "audio": 0, "end": 6230304, "filename": "/pgffor.sty"}, {"start": 6230304, "audio": 0, "end": 6233367, "filename": "/pgfint.code.tex"}, {"start": 6233367, "audio": 0, "end": 6269736, "filename": "/pgfkeys.code.tex"}, {"start": 6269736, "audio": 0, "end": 6270010, "filename": "/pgfkeys.sty"}, {"start": 6270010, "audio": 0, "end": 6307562, "filename": "/pgfkeysfiltered.code.tex"}, {"start": 6307562, "audio": 0, "end": 6339436, "filename": "/pgflibraryarrows.code.tex"}, {"start": 6339436, "audio": 0, "end": 6398237, "filename": "/pgflibraryarrows.meta.code.tex"}, {"start": 6398237, "audio": 0, "end": 6431232, "filename": "/pgflibraryplothandlers.code.tex"}, {"start": 6431232, "audio": 0, "end": 6431753, "filename": "/pgfmath.code.tex"}, {"start": 6431753, "audio": 0, "end": 6432059, "filename": "/pgfmath.sty"}, {"start": 6432059, "audio": 0, "end": 6445450, "filename": "/pgfmathcalc.code.tex"}, {"start": 6445450, "audio": 0, "end": 6550388, "filename": "/pgfmathfloat.code.tex"}, {"start": 6550388, "audio": 0, "end": 6560545, "filename": "/pgfmathfunctions.base.code.tex"}, {"start": 6560545, "audio": 0, "end": 6588722, "filename": "/pgfmathfunctions.basic.code.tex"}, {"start": 6588722, "audio": 0, "end": 6597913, "filename": "/pgfmathfunctions.code.tex"}, {"start": 6597913, "audio": 0, "end": 6601778, "filename": "/pgfmathfunctions.comparison.code.tex"}, {"start": 6601778, "audio": 0, "end": 6604955, "filename": "/pgfmathfunctions.integerarithmetics.code.tex"}, {"start": 6604955, "audio": 0, "end": 6615880, "filename": "/pgfmathfunctions.misc.code.tex"}, {"start": 6615880, "audio": 0, "end": 6623637, "filename": "/pgfmathfunctions.random.code.tex"}, {"start": 6623637, "audio": 0, "end": 6627016, "filename": "/pgfmathfunctions.round.code.tex"}, {"start": 6627016, "audio": 0, "end": 6719421, "filename": "/pgfmathfunctions.trigonometric.code.tex"}, {"start": 6719421, "audio": 0, "end": 6755790, "filename": "/pgfmathparser.code.tex"}, {"start": 6755790, "audio": 0, "end": 6763221, "filename": "/pgfmathutil.code.tex"}, {"start": 6763221, "audio": 0, "end": 6784126, "filename": "/pgfmodulematrix.code.tex"}, {"start": 6784126, "audio": 0, "end": 6800247, "filename": "/pgfmoduleplot.code.tex"}, {"start": 6800247, "audio": 0, "end": 6843560, "filename": "/pgfmoduleshapes.code.tex"}, {"start": 6843560, "audio": 0, "end": 6848054, "filename": "/pgfrcs.code.tex"}, {"start": 6848054, "audio": 0, "end": 6848379, "filename": "/pgfrcs.sty"}, {"start": 6848379, "audio": 0, "end": 6853925, "filename": "/pgfsys-common-pdf.def"}, {"start": 6853925, "audio": 0, "end": 6867683, "filename": "/pgfsys-pdftex.def"}, {"start": 6867683, "audio": 0, "end": 6927952, "filename": "/pgfsys.code.tex"}, {"start": 6927952, "audio": 0, "end": 6928395, "filename": "/pgfsys.sty"}, {"start": 6928395, "audio": 0, "end": 6930291, "filename": "/pgfsysprotocol.code.tex"}, {"start": 6930291, "audio": 0, "end": 6938069, "filename": "/pgfsyssoftpath.code.tex"}, {"start": 6938069, "audio": 0, "end": 6945319, "filename": "/pgfutil-common-lists.tex"}, {"start": 6945319, "audio": 0, "end": 6972889, "filename": "/pgfutil-common.tex"}, {"start": 6972889, "audio": 0, "end": 6979175, "filename": "/pgfutil-latex.def"}, {"start": 6979175, "audio": 0, "end": 10394383, "filename": "/preamble.fmt"}, {"start": 10394383, "audio": 0, "end": 10394748, "filename": "/preamble.tex"}, {"start": 10394748, "audio": 0, "end": 10403042, "filename": "/size10.clo"}, {"start": 10403042, "audio": 0, "end": 10411352, "filename": "/size11.clo"}, {"start": 10411352, "audio": 0, "end": 10482979, "filename": "/supp-pdf.mkii"}, {"start": 10482979, "audio": 0, "end": 10485551, "filename": "/test.tex"}, {"start": 10485551, "audio": 0, "end": 10485624, "filename": "/test2.tex"}, {"start": 10485624, "audio": 0, "end": 10521108, "filename": "/texmf.cnf"}, {"start": 10521108, "audio": 0, "end": 10705212, "filename": "/tikz.code.tex"}, {"start": 10705212, "audio": 0, "end": 10705551, "filename": "/tikz.sty"}, {"start": 10705551, "audio": 0, "end": 10705870, "filename": "/tikzlibraryarrows.code.tex"}, {"start": 10705870, "audio": 0, "end": 10728983, "filename": "/tikzlibrarycd.code.tex"}, {"start": 10728983, "audio": 0, "end": 10733185, "filename": "/tikzlibrarymatrix.code.tex"}, {"start": 10733185, "audio": 0, "end": 10737122, "filename": "/tikzlibrarypositioning.code.tex"}, {"start": 10737122, "audio": 0, "end": 10741053, "filename": "/tikzlibraryquotes.code.tex"}, {"start": 10741053, "audio": 0, "end": 10752658, "filename": "/tikzlibrarytopaths.code.tex"}, {"start": 10752658, "audio": 0, "end": 10756635, "filename": "/trig.sty"}, {"start": 10756635, "audio": 0, "end": 10757698, "filename": "/ueus.fd"}, {"start": 10757698, "audio": 0, "end": 10813287, "filename": "/xcolor.sty"}], "remote_package_size": 10813287, "package_uuid": "affe5db1-9c6d-47c2-87e8-b5c09fceea88"});
-
-})();
-
 var me = self;
 me.wasmURL = "../resources/wasm/pdflatex.wasm";
 
 if (typeof Module.preRun === "undefined")
   Module.preRun = [];
 
+if (typeof Module.postRun === "undefined")
+  Module.postRun = [];
+
+
 // Module['print'] = function (text) {};
 
 Module.preRun.push(function () {
+  Module.BFS = new BrowserFS.EmscriptenFS(FS, PATH, ERRNO_CODES);
+
   FS.createDataFile("/", Module['thisProgram'], "dummy for kpathsea", true, true);
 
   // Everything happens in here
-  // FS.mkdir('/app');
+  FS.mkdir('/app');
 
   // Setup tex directory structure and environment variables 
   // so pdflatex knows where to find things
-  // FS.mkdir('/app/texlive');
-  // ENV.TEXMFCNF = '/app/texlive/:/app/texlive/texmf-config/:/app/texlive/texmf-dist/web2c/';
-  // ENV.TEXMFROOT = '/app/texlive';
-  // ENV.TEXMFLOCAL = '/app/texlive/texmf-local';
-  // ENV.TEXMFDIST = '/app/texlive/texmf-dist';
-  // ENV.TEXMFSYSVAR = '/app/texlive/texmf-var';
-  // ENV.TEXMFSYSCONFIG = '/app/texlive/texmf-config';
-  // ENV.TEXMFVAR = '/app/texlive/user-texmf-var';
+  FS.mkdir('/app/texlive');
+  FS.mount(Module.BFS, { root: '/' }, '/app/texlive');
+  ENV.TEXMFCNF = '/app/texlive/:/app/texlive/texmf-dist/web2c/';
+  ENV.TEXMFROOT = '/app/texlive';
+  ENV.TEXMFLOCAL = '/app/texlive/texmf-local';
+  ENV.TEXMFDIST = '/app/texlive/texmf-dist';
+  ENV.TEXMFSYSVAR = '/app/texlive/texmf-var';
+  ENV.TEXMFSYSCONFIG = '/app/texlive/texmf-config';
+  ENV.TEXMFVAR = '/app/texlive/user-texmf-var';
 
   // Working source files should be in here
-  // FS.mkdir('/app/working');
-  // FS.chdir('/app/working');
+  FS.mkdir('/app/working');
+  FS.chdir('/app/working');
 });
+
+Module.postRun.push(function () {
+  Module.BFS = null;
+});
+
 
 function getModuleP() {
   if (!me.wasmModule)
@@ -7011,8 +6844,7 @@ function copyTempDouble(ptr) {
       ___setErrNo(12);
       return -1;
     }
-
-FS.staticInit();Module["FS_createFolder"] = FS.createFolder;Module["FS_createPath"] = FS.createPath;Module["FS_createDataFile"] = FS.createDataFile;Module["FS_createPreloadedFile"] = FS.createPreloadedFile;Module["FS_createLazyFile"] = FS.createLazyFile;Module["FS_createLink"] = FS.createLink;Module["FS_createDevice"] = FS.createDevice;Module["FS_unlink"] = FS.unlink;;
+FS.staticInit();;
 var ASSERTIONS = true;
 
 // Copyright 2017 The Emscripten Authors.  All rights reserved.
@@ -7548,7 +7380,7 @@ if (!Object.getOwnPropertyDescriptor(Module, "cwrap")) Module["cwrap"] = functio
 if (!Object.getOwnPropertyDescriptor(Module, "setValue")) Module["setValue"] = function() { abort("'setValue' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "getValue")) Module["getValue"] = function() { abort("'getValue' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "allocate")) Module["allocate"] = function() { abort("'allocate' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
-Module["getMemory"] = getMemory;
+if (!Object.getOwnPropertyDescriptor(Module, "getMemory")) Module["getMemory"] = function() { abort("'getMemory' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
 if (!Object.getOwnPropertyDescriptor(Module, "AsciiToString")) Module["AsciiToString"] = function() { abort("'AsciiToString' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "stringToAscii")) Module["stringToAscii"] = function() { abort("'stringToAscii' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "UTF8ArrayToString")) Module["UTF8ArrayToString"] = function() { abort("'UTF8ArrayToString' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -7572,18 +7404,18 @@ if (!Object.getOwnPropertyDescriptor(Module, "addOnPostRun")) Module["addOnPostR
 if (!Object.getOwnPropertyDescriptor(Module, "writeStringToMemory")) Module["writeStringToMemory"] = function() { abort("'writeStringToMemory' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "writeArrayToMemory")) Module["writeArrayToMemory"] = function() { abort("'writeArrayToMemory' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "writeAsciiToMemory")) Module["writeAsciiToMemory"] = function() { abort("'writeAsciiToMemory' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
-Module["addRunDependency"] = addRunDependency;
-Module["removeRunDependency"] = removeRunDependency;
+if (!Object.getOwnPropertyDescriptor(Module, "addRunDependency")) Module["addRunDependency"] = function() { abort("'addRunDependency' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "removeRunDependency")) Module["removeRunDependency"] = function() { abort("'removeRunDependency' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
 if (!Object.getOwnPropertyDescriptor(Module, "ENV")) Module["ENV"] = function() { abort("'ENV' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 Module["FS"] = FS;
-Module["FS_createFolder"] = FS.createFolder;
-Module["FS_createPath"] = FS.createPath;
-Module["FS_createDataFile"] = FS.createDataFile;
-Module["FS_createPreloadedFile"] = FS.createPreloadedFile;
-Module["FS_createLazyFile"] = FS.createLazyFile;
-Module["FS_createLink"] = FS.createLink;
-Module["FS_createDevice"] = FS.createDevice;
-Module["FS_unlink"] = FS.unlink;
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createFolder")) Module["FS_createFolder"] = function() { abort("'FS_createFolder' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createPath")) Module["FS_createPath"] = function() { abort("'FS_createPath' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createDataFile")) Module["FS_createDataFile"] = function() { abort("'FS_createDataFile' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createPreloadedFile")) Module["FS_createPreloadedFile"] = function() { abort("'FS_createPreloadedFile' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createLazyFile")) Module["FS_createLazyFile"] = function() { abort("'FS_createLazyFile' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createLink")) Module["FS_createLink"] = function() { abort("'FS_createLink' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_createDevice")) Module["FS_createDevice"] = function() { abort("'FS_createDevice' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Object.getOwnPropertyDescriptor(Module, "FS_unlink")) Module["FS_unlink"] = function() { abort("'FS_unlink' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
 if (!Object.getOwnPropertyDescriptor(Module, "GL")) Module["GL"] = function() { abort("'GL' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "dynamicAlloc")) Module["dynamicAlloc"] = function() { abort("'dynamicAlloc' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "loadDynamicLibrary")) Module["loadDynamicLibrary"] = function() { abort("'loadDynamicLibrary' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -7617,7 +7449,7 @@ Module["abortStackOverflow"] = abortStackOverflow;if (!Object.getOwnPropertyDesc
 if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_STACK")) Object.defineProperty(Module, "ALLOC_STACK", { configurable: true, get: function() { abort("'ALLOC_STACK' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
 if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_DYNAMIC")) Object.defineProperty(Module, "ALLOC_DYNAMIC", { configurable: true, get: function() { abort("'ALLOC_DYNAMIC' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
 if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_NONE")) Object.defineProperty(Module, "ALLOC_NONE", { configurable: true, get: function() { abort("'ALLOC_NONE' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
-Module["calledRun"] = calledRun;
+if (!Object.getOwnPropertyDescriptor(Module, "calledRun")) Object.defineProperty(Module, "calledRun", { configurable: true, get: function() { abort("'calledRun' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") } });
 
 
 
@@ -7736,7 +7568,6 @@ function run(args) {
     // or while the async setStatus time below was happening
     if (calledRun) return;
     calledRun = true;
-    Module['calledRun'] = true;
 
     if (ABORT) return;
 

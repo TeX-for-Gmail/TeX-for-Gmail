@@ -5,7 +5,7 @@ console.log("Welcome to LaTeX for Gmail!");
 var ports = {};
 
 let pdftexWorkerPool = new Pool({
-  count: 2,
+  count: 3  ,
   cons: () => new Communicator(new Worker('pdftexworker.js', { 'name': 'pdftexworker' })),
   autoRelease: true,
   initialize: () => { },
@@ -13,11 +13,11 @@ let pdftexWorkerPool = new Pool({
 });
 
 let mupdfWorkerPool = new Pool({
-  count: 4,
+  count: 2,
   cons: () => new Communicator(new Worker('mupdfworker.js', { 'name': 'mupdfworker' })),
   autoRelease: true,
   initialize: () => { },
-  multiplier: 2
+  multiplier: 4
 });
 
 async function compile(srcCode) {
