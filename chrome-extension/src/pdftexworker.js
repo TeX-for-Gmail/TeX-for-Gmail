@@ -28,7 +28,7 @@ BrowserFS.configure({
     slow: {
       fs: "XmlHttpRequest",
       options: {
-        baseUrl: "https://cdn.jsdelivr.net/gh/TeX-for-Gmail/TeX-Live-Files@2019.0.2/texlive",
+        baseUrl: "https://cdn.jsdelivr.net/gh/TeX-for-Gmail/TeX-Live-Files@2019.0.4/texlive",
         index: "../resources/data/index.json",
         preferXHR: false
       }
@@ -63,18 +63,19 @@ function pdflatexMod(opts) {
   });
 }
 
-function compileHelper(pdflatexModule, srcCode) {
+function compileHelper(pdflatexModule, srcCode, params) {
+  params = params ? params : [];
   let fileName = 'source';
   pdflatexModule.FS.writeFile(`${fileName}.tex`, srcCode);
-  pdflatexModule.callMain([`${fileName}.tex`, '-interaction=nonstopmode']);
+  pdflatexModule.callMain([`${fileName}.tex`, '-interaction=nonstopmode'].concat(params));
   let pdfFile = pdflatexModule.FS.readFile(`${fileName}.pdf`);
   return pdfFile;
 }
 
-async function compile({ srcCode }) {
+async function compile({ srcCode, params }) {
   try {
     let pdfFile = await memPool.process(mem => pdflatexMod({ 'wasmMemory': mem })
-      .then(m => compileHelper(m, srcCode)));
+      .then(m => compileHelper(m, srcCode, params)));
 
     return {
       code: Communicator.SUCCESS,

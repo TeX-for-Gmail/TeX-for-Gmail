@@ -8,16 +8,16 @@ async function receiveUrl(req) {
   let f = await fetch(res.url);
   let blob = await f.blob()
   let url = URL.createObjectURL(blob)
-  comm.post("revokeUrl", {url: res.url});
+  comm.post("revokeUrl", { url: res.url });
   return url;
 }
 
-async function compile2pngURL(srcCode, scale) {
-  return receiveUrl(() => comm.request("compile2pngURL", { srcCode: srcCode, scale: scale }));
+async function compile2pngURL(srcCode, scale, params) {
+  return receiveUrl(() => comm.request("compile2pngURL", { srcCode: srcCode, scale: scale, params: params }));
 }
 
-async function compile2pdfURL(srcCode) {
-  return receiveUrl(() => comm.request("compile2pdfURL", { srcCode: srcCode }));
+async function compile2pdfURL(srcCode, params) {
+  return receiveUrl(() => comm.request("compile2pdfURL", { srcCode: srcCode, params: params }));
 }
 
 console.log(compile2pngURL("\\documentclass{article}\\begin{document}Test222\\end{document}", 2));

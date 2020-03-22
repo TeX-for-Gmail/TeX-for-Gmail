@@ -5,7 +5,7 @@ console.log("Welcome to LaTeX for Gmail!");
 var ports = {};
 
 let pdftexWorkerPool = new Pool({
-  count: 3  ,
+  count: 2,
   cons: () => new Communicator(new Worker('pdftexworker.js', { 'name': 'pdftexworker' })),
   autoRelease: true,
   initialize: () => { },
@@ -20,8 +20,8 @@ let mupdfWorkerPool = new Pool({
   multiplier: 4
 });
 
-async function compile(srcCode) {
-  let res = await pdftexWorkerPool.process(comm => comm.request("compile", { srcCode: srcCode }));
+async function compile(srcCode, params) {
+  let res = await pdftexWorkerPool.process(comm => comm.request("compile", { srcCode: srcCode, params: params }));
   return res.pdfFile;
 }
 
@@ -31,8 +31,8 @@ async function pdf2png(pdfFile, scale, pageNo) {
   return res.pngFile;
 }
 
-async function compile2png(srcCode, scale) {
-  let pdfFile = await compile(srcCode);
+async function compile2png(srcCode, scale, params) {
+  let pdfFile = await compile(srcCode, params);
   let pngFile = await pdf2png(pdfFile, scale, 1);
   return new Uint8Array(pngFile);
 }
@@ -47,12 +47,12 @@ async function toUrlFactory(f, tpe) {
   };
 }
 
-async function compile2pngURL({ srcCode, scale }) {
-  return toUrlFactory(() => compile2png(srcCode, scale), 'image/png');
+async function compile2pngURL({ srcCode, scale, params }) {
+  return toUrlFactory(() => compile2png(srcCode, scale, params), 'image/png');
 }
 
-async function compile2pdfURL({ srcCode }) {
-  return toUrlFactory(() => compile(srcCode), 'application/pdf');
+async function compile2pdfURL({ srcCode, params }) {
+  return toUrlFactory(() => compile(srcCode, params), 'application/pdf');
 }
 
 function revokeUrl({ url }) {
