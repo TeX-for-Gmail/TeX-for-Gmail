@@ -10,6 +10,26 @@ let comm = new Communicator(thisWorker);
 let bfsWindow = {};
 BrowserFS.install(bfsWindow);
 
+// BrowserFS.configure({
+//   fs: "AsyncMirror",
+//   options: {
+//     sync: {
+//       fs: "InMemory"
+//     },
+//     async: {
+//       fs: "IndexedDB",
+//       options: {}
+//     }
+//   }
+// }, function (e) {
+//   if (e) throw e;
+//   else {
+//     bfsWindow.fs = BrowserFS.BFSRequire('fs');
+//     console.log('BFS ready!');
+//   }
+// });
+
+
 BrowserFS.configure({
   fs: "CacheFS",
   options: {
@@ -42,20 +62,6 @@ BrowserFS.configure({
   }
 });
 
-// Memory pool to reduce pressure on GC and to avoid out of memory error
-let memPool = new Pool({
-  count: 2,
-  cons: () => new WebAssembly.Memory({ 'initial': 2048, 'maximum': 4096 }),
-  autoRelease: true,
-  initialize: wasmMem => cleanMem(wasmMem),
-  multiplier: 1
-});
-
-function cleanMem(wasmMemory) {
-  var i32 = new Uint32Array(wasmMemory.buffer);
-  i32.fill(0);
-  return wasmMemory;
-}
 
 function pdflatexMod(opts) {
   return new Promise((resolve, reject) => {
@@ -76,10 +82,8 @@ async function compile({ srcCode, params }) {
   params = params ? params : [];
   let fileName = "source";
   try {
-    let pdfFile = await memPool.process(mem =>
-      pdflatexMod({ 'wasmMemory': mem })
-        .then(m => compileHelper(m, srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`])))
-    );
+    let pdfFile = await pdflatexMod()
+      .then(m => compileHelper(m, srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`])));
 
     return {
       code: Communicator.SUCCESS,
@@ -103,14 +107,13 @@ async function makeFormat({ preamble }) {
   let fileName = "myPreamble";
 
   try {
-    await memPool.process(mem =>
-      pdflatexMod({ 'wasmMemory': mem })
-        .then(async m => {
-          let formatFile = await compileHelper(m, preamble, fileName, `${fileName}.fmt`,
-            ['-ini', `-jobname="${fileName}"`, String.raw`&pdflatex ${fileName}.tex\dump`]);
+    await pdflatexMod()
+      .then(async m => {
+        let formatFile = await compileHelper(m, preamble, fileName, `${fileName}.fmt`,
+          ['-ini', `-jobname="${fileName}"`, String.raw`&pdflatex ${fileName}.tex\dump`]);
 
-          m.FS.writeFile(`/app/texlive/${fileName}.fmt`, formatFile);
-        }));
+        m.FS.writeFile(`/app/texlive/${fileName}.fmt`, formatFile);
+      });
 
     return {
       code: Communicator.SUCCESS,
@@ -127,3 +130,5 @@ async function makeFormat({ preamble }) {
 comm.messageHandler.compile = compile;
 comm.messageHandler.makeFormat = makeFormat;
 comm.messageHandler.compileSnippet = compileSnippet;
+
+// makeFormat({preamble: String.raw`\documentclass[preview, 12pt]{standalone}\usepackage{amsmath, amsfonts, amssymb, mathrsfs, tikz-cd}\usepackage[T1]{fontenc}\usepackage{stix2}`})

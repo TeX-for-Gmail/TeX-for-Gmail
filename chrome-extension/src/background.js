@@ -8,7 +8,7 @@ var mupdfWorkerPool;
 
 function setupWorkerPools() {
   setupPdftexWorkerPool({ count: 2, multiplier: 1 });
-  setupMupdfWorkerPool({ count: 2, multiplier: 4 });
+  setupMupdfWorkerPool({ count: 1, multiplier: 4 });
 }
 
 function getStatus() {
