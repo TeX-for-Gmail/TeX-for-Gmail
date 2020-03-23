@@ -66,6 +66,11 @@ async function compile(srcCode, params) {
   return res.pdfFile;
 }
 
+async function compileSnippet(snippet) {
+  let res = await pdftexWorkerPool.process(comm => comm.request("compileSnippet", { snippet: snippet }));
+  return res.pdfFile;
+}
+
 // pdfFile is an Uint8Array
 async function pdf2png(pdfFile, scale, pageNo) {
   let res = await mupdfWorkerPool.process(comm => comm.request("pdf2png", { pdfFile: pdfFile, scale: scale, pageNo: pageNo }, [pdfFile.buffer]));
@@ -74,6 +79,12 @@ async function pdf2png(pdfFile, scale, pageNo) {
 
 async function compile2png(srcCode, scale, params) {
   let pdfFile = await compile(srcCode, params);
+  let pngFile = await pdf2png(pdfFile, scale, 1);
+  return new Uint8Array(pngFile);
+}
+
+async function compileSnippet2png(snippet, scale) {
+  let pdfFile = await compileSnippet(snippet);
   let pngFile = await pdf2png(pdfFile, scale, 1);
   return new Uint8Array(pngFile);
 }
@@ -96,6 +107,15 @@ async function compile2pdfURL({ srcCode, params }) {
   return toUrlFactory(() => compile(srcCode, params), 'application/pdf');
 }
 
+async function compileSnippet2pngURL({ snippet, scale }) {
+  return toUrlFactory(() => compileSnippet2png(snippet, scale), 'image/png');
+}
+
+async function compileSnippet2pdfURL({ snippet }) {
+  return toUrlFactory(() => compileSnippet(snippet), 'application/pdf');
+}
+
+
 function revokeUrl({ url }) {
   URL.revokeObjectURL(url);
 }
@@ -108,6 +128,8 @@ function setupMessageHandler(comm) {
   comm.messageHandler.destroyMupdfWorkerPool = destroyMupdfWorkerPool;
   comm.messageHandler.compile2pngURL = compile2pngURL;
   comm.messageHandler.compile2pdfURL = compile2pdfURL;
+  comm.messageHandler.compileSnippet2pngURL = compileSnippet2pngURL;
+  comm.messageHandler.compileSnippet2pdfURL = compileSnippet2pdfURL;
   comm.messageHandler.revokeUrl = revokeUrl;
 }
 

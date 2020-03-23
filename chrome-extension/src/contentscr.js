@@ -24,4 +24,14 @@ async function compile2pdfURL(srcCode, params) {
   return receiveUrl(() => comm.request("compile2pdfURL", { srcCode: srcCode, params: params }));
 }
 
+async function compileSnippet2pngURL({ snippet, scale }) {
+  return receiveUrl(() => comm.request("compileSnippet2pngURL", { snippet: snippet, scale: scale }));
+}
+
+async function compileSnippet2pdfURL({ snippet }) {
+  return receiveUrl(() => comm.request("compileSnippet2pdfURL", { snippet: snippet }));
+}
+
 compile2pngURL("\\documentclass{article}\\begin{document}Test222\\end{document}", 2).then(res => console.log(res));
+
+// compileSnippet2pngURL({snippet: String.raw`\begin{tikzcd}A \ar{r} & B \ar{d} \\ & C\end{tikzcd}`, scale: 3}).then(res => console.log(res));

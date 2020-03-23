@@ -45,7 +45,7 @@ BrowserFS.configure({
 // Memory pool to reduce pressure on GC and to avoid out of memory error
 let memPool = new Pool({
   count: 2,
-  cons: () => new WebAssembly.Memory({ 'initial': 2048, 'maximum': 2048 }),
+  cons: () => new WebAssembly.Memory({ 'initial': 2048, 'maximum': 4096 }),
   autoRelease: true,
   initialize: wasmMem => cleanMem(wasmMem),
   multiplier: 1
@@ -63,19 +63,23 @@ function pdflatexMod(opts) {
   });
 }
 
-function compileHelper(pdflatexModule, srcCode, params) {
+// fileName is without extension
+function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
   params = params ? params : [];
-  let fileName = 'source';
   pdflatexModule.FS.writeFile(`${fileName}.tex`, srcCode);
-  pdflatexModule.callMain([`${fileName}.tex`, '-interaction=nonstopmode'].concat(params));
-  let pdfFile = pdflatexModule.FS.readFile(`${fileName}.pdf`);
+  pdflatexModule.callMain(['-interaction=nonstopmode'].concat(params));
+  let pdfFile = pdflatexModule.FS.readFile(`${outputFile}`);
   return pdfFile;
 }
 
 async function compile({ srcCode, params }) {
+  params = params ? params : [];
+  let fileName = "source";
   try {
-    let pdfFile = await memPool.process(mem => pdflatexMod({ 'wasmMemory': mem })
-      .then(m => compileHelper(m, srcCode, params)));
+    let pdfFile = await memPool.process(mem =>
+      pdflatexMod({ 'wasmMemory': mem })
+        .then(m => compileHelper(m, srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`])))
+    );
 
     return {
       code: Communicator.SUCCESS,
@@ -85,9 +89,41 @@ async function compile({ srcCode, params }) {
   } catch (ex) {
     return {
       code: Communicator.FAILURE,
-      payload: { err: ex.toString(), location: `pdftexworker.js, pdf2png` }
+      payload: { err: ex.toString(), location: `pdftexworker.js, compile` }
+    };
+  }
+}
+
+async function compileSnippet({ snippet }) {
+  let srcCode = `%&/app/texlive/myPreamble\n\\begin{document}${snippet}\\end{document}`;
+  return compile({ srcCode: srcCode, params: [] });
+}
+
+async function makeFormat({ preamble }) {
+  let fileName = "myPreamble";
+
+  try {
+    await memPool.process(mem =>
+      pdflatexMod({ 'wasmMemory': mem })
+        .then(async m => {
+          let formatFile = await compileHelper(m, preamble, fileName, `${fileName}.fmt`,
+            ['-ini', `-jobname="${fileName}"`, String.raw`&pdflatex ${fileName}.tex\dump`]);
+
+          m.FS.writeFile(`/app/texlive/${fileName}.fmt`, formatFile);
+        }));
+
+    return {
+      code: Communicator.SUCCESS,
+      payload: { msg: `Custom format sucessfully created at /app/texlive/myPreamble.fmt.` }
+    };
+  } catch (ex) {
+    return {
+      code: Communicator.FAILURE,
+      payload: { err: ex.toString(), location: `pdftexworker.js, makeFormat` }
     };
   }
 }
 
 comm.messageHandler.compile = compile;
+comm.messageHandler.makeFormat = makeFormat;
+comm.messageHandler.compileSnippet = compileSnippet;
