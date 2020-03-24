@@ -10,30 +10,37 @@ let comm = new Communicator(thisWorker);
 let bfsWindow = {};
 BrowserFS.install(bfsWindow);
 
-// BrowserFS.configure({
-//   fs: "AsyncMirror",
-//   options: {
-//     sync: {
-//       fs: "InMemory"
-//     },
-//     async: {
-//       fs: "IndexedDB",
-//       options: {}
-//     }
-//   }
-// }, function (e) {
-//   if (e) throw e;
-//   else {
-//     bfsWindow.fs = BrowserFS.BFSRequire('fs');
-//     console.log('BFS ready!');
-//   }
-// });
-
-
 BrowserFS.configure({
-  fs: "CacheFS",
+  fs: "MountableFileSystem",
   options: {
-    fast: {
+    "/texlive": {
+      fs: "CacheFS",
+      options: {
+        fast: {
+          fs: "AsyncMirror",
+          options: {
+            sync: {
+              fs: "InMemory"
+            },
+            async: {
+              fs: "IndexedDB",
+              options: {
+                storeName: "texlive"
+              }
+            }
+          }
+        },
+        slow: {
+          fs: "XmlHttpRequest",
+          options: {
+            baseUrl: "https://cdn.jsdelivr.net/gh/TeX-for-Gmail/TeX-Live-Files@2019.0.4/texlive",
+            index: "../resources/data/index.json",
+            preferXHR: false
+          }
+        }
+      }
+    },
+    "/format": {
       fs: "AsyncMirror",
       options: {
         sync: {
@@ -41,16 +48,10 @@ BrowserFS.configure({
         },
         async: {
           fs: "IndexedDB",
-          options: {}
+          options: {
+            storeName: "format"
+          }
         }
-      }
-    },
-    slow: {
-      fs: "XmlHttpRequest",
-      options: {
-        baseUrl: "https://cdn.jsdelivr.net/gh/TeX-for-Gmail/TeX-Live-Files@2019.0.4/texlive",
-        index: "../resources/data/index.json",
-        preferXHR: false
       }
     }
   }
@@ -97,7 +98,7 @@ async function compile({ srcCode, params }) {
 }
 
 async function compileSnippet({ snippet }) {
-  let srcCode = `%&/app/texlive/myPreamble\n\\begin{document}${snippet}\\end{document}`;
+  let srcCode = `%&/app/bfs/format/myPreamble\n\\begin{document}${snippet}\\end{document}`;
   return compile({ srcCode: srcCode, params: [] });
 }
 
@@ -110,7 +111,7 @@ async function makeFormat({ preamble }) {
         let formatFile = await compileHelper(m, preamble, fileName, `${fileName}.fmt`,
           ['-ini', `-jobname="${fileName}"`, String.raw`&pdflatex ${fileName}.tex\dump`]);
 
-        m.FS.writeFile(`/app/texlive/${fileName}.fmt`, formatFile);
+        m.FS.writeFile(`/app/bfs/format/${fileName}.fmt`, formatFile);
       });
 
     return {
@@ -125,8 +126,37 @@ async function makeFormat({ preamble }) {
   }
 }
 
+function clearCache({ }) {
+  function remove(fs, p) {
+    p = fs.realpathSync(p); // normalize
+
+    if (fs.statSync(p, true).isFile())
+      fs.unlinkSync(p);
+    else {
+      fs.readdirSync(p).forEach(el => remove(fs, `${p}/${el}`));
+      if (p === '/') return;
+      fs.rmdirSync(p);
+    }
+  }
+
+  try {
+    remove(bfsWindow.fs.getRootFS().mntMap['/texlive']._fast, '/');
+
+    return {
+      code: Communicator.SUCCESS,
+      payload: { msg: `Cache cleared.` }
+    };
+  } catch (ex) {
+    return {
+      code: Communicator.FAILURE,
+      payload: { err: ex.toString(), location: `pdftexworker.js, clearCache` }
+    };
+  }
+}
+
 comm.messageHandler.compile = compile;
 comm.messageHandler.makeFormat = makeFormat;
 comm.messageHandler.compileSnippet = compileSnippet;
+comm.messageHandler.clearCache = clearCache;
 
 // makeFormat({preamble: String.raw`\documentclass[preview, 12pt]{standalone}\usepackage{amsmath, amsfonts, amssymb, mathrsfs, tikz-cd}\usepackage[T1]{fontenc}\usepackage{stix2}`})

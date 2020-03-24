@@ -11,6 +11,9 @@ if (typeof Module.postRun === "undefined")
 // Module['print'] = function (text) {};
 
 Module.preRun.push(function () {
+  let bfs = '/app/bfs';
+  let texlive = `${bfs}/texlive`;
+
   Module.BFS = new BrowserFS.EmscriptenFS(FS, PATH, ERRNO_CODES);
 
   FS.createDataFile("/", Module['thisProgram'], "dummy for kpathsea", true, true);
@@ -20,15 +23,15 @@ Module.preRun.push(function () {
 
   // Setup tex directory structure and environment variables 
   // so pdflatex knows where to find things
-  FS.mkdir('/app/texlive');
-  FS.mount(Module.BFS, { root: '/' }, '/app/texlive');
-  ENV.TEXMFCNF = '/app/texlive/:/app/texlive/texmf-dist/web2c/';
-  ENV.TEXMFROOT = '/app/texlive';
-  ENV.TEXMFLOCAL = '/app/texlive/texmf-local';
-  ENV.TEXMFDIST = '/app/texlive/texmf-dist';
-  ENV.TEXMFSYSVAR = '/app/texlive/texmf-var';
-  ENV.TEXMFSYSCONFIG = '/app/texlive/texmf-config';
-  ENV.TEXMFVAR = '/app/texlive/user-texmf-var';
+  FS.mkdir(`${bfs}`);
+  FS.mount(Module.BFS, { root: '/' }, `${bfs}`);
+  ENV.TEXMFCNF = `${texlive}/:${texlive}/texmf-dist/web2c/`;
+  ENV.TEXMFROOT = `${texlive}`;
+  ENV.TEXMFLOCAL = `${texlive}/texmf-local`;
+  ENV.TEXMFDIST = `${texlive}/texmf-dist`;
+  ENV.TEXMFSYSVAR = `${texlive}/texmf-var`;
+  ENV.TEXMFSYSCONFIG = `${texlive}/texmf-config`;
+  ENV.TEXMFVAR = `${texlive}/user-texmf-var`;
 
   // Working source files should be in here
   FS.mkdir('/app/working');

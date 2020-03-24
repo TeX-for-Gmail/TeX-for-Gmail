@@ -32,6 +32,6 @@ async function compileSnippet2pdfURL(snippet) {
   return receiveUrl(() => comm.request("compileSnippet2pdfURL", { snippet: snippet }));
 }
 
-compile2pngURL("\\documentclass{article}\\begin{document}Test222\\end{document}", 2).then(res => console.log(res));
+// compile2pngURL("\\documentclass{article}\\begin{document}Test222\\end{document}", 2).then(res => console.log(res));
 
 // compileSnippet2pngURL({snippet: String.raw`\begin{tikzcd}A \ar{r} & B \ar{d} \\ & C\end{tikzcd}`, scale: 3}).then(res => console.log(res));
