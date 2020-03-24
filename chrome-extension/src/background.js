@@ -93,6 +93,8 @@ async function toUrlFactory(f, tpe) {
   let file = await f();
   let blob = new Blob([file], { type: tpe });
   let url = URL.createObjectURL(blob);
+
+  setTimeout(() => URL.revokeObjectURL(url), 10000); // Automatically free after 10 seconds to avoid leaks.
   return {
     code: Communicator.SUCCESS,
     payload: { url: url }

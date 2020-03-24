@@ -18,7 +18,7 @@ class Semaphore {
   rejectAll() {
     while (this.waits.length > 0) {
       let waitReject = this.waits.pop()[1];
-      waitReject(`Workpool ${this.name} destroyed!`);
+      waitReject(`Workpool ${this.name} already destroyed!`);
     }
   }
 
@@ -45,7 +45,7 @@ class Semaphore {
 
   acquire() {
     if (this.destroyed)
-      return Promise.reject(`Workpool ${this.name} destroyed!`);
+      return Promise.reject(`Workpool ${this.name} already destroyed!`);
 
     if (this.availableNo > 0) {
       this.availableNo--;
@@ -118,7 +118,7 @@ class Pool {
 
   process(task) {
     if (this.destroyed)
-      return Promise.reject(`Workpool ${this.name} destroyed!`);
+      return Promise.reject(`Workpool ${this.name} already destroyed!`);
 
     let permit = this.semaphore.acquire();
 

@@ -24,11 +24,11 @@ async function compile2pdfURL(srcCode, params) {
   return receiveUrl(() => comm.request("compile2pdfURL", { srcCode: srcCode, params: params }));
 }
 
-async function compileSnippet2pngURL({ snippet, scale }) {
+async function compileSnippet2pngURL(snippet, scale) {
   return receiveUrl(() => comm.request("compileSnippet2pngURL", { snippet: snippet, scale: scale }));
 }
 
-async function compileSnippet2pdfURL({ snippet }) {
+async function compileSnippet2pdfURL(snippet) {
   return receiveUrl(() => comm.request("compileSnippet2pdfURL", { snippet: snippet }));
 }
 
