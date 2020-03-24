@@ -62,6 +62,7 @@ function destroyMupdfWorkerPool() {
 }
 
 async function compile(srcCode, params) {
+  params = params ? params : [];
   let res = await pdftexWorkerPool.process(comm => comm.request("compile", { srcCode: srcCode, params: params }));
   return res.pdfFile;
 }

@@ -71,7 +71,6 @@ function pdflatexMod(opts) {
 
 // fileName is without extension
 function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
-  params = params ? params : [];
   pdflatexModule.FS.writeFile(`${fileName}.tex`, srcCode);
   pdflatexModule.callMain(['-interaction=nonstopmode'].concat(params));
   let pdfFile = pdflatexModule.FS.readFile(`${outputFile}`);
@@ -79,7 +78,6 @@ function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
 }
 
 async function compile({ srcCode, params }) {
-  params = params ? params : [];
   let fileName = "source";
   try {
     let pdfFile = await pdflatexMod()
