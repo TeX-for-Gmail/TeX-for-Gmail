@@ -2,6 +2,8 @@
 
 console.log("Welcome to LaTeX for Gmail!");
 
+let DEFAULT_FORMAT = 'plain';
+
 var ports = {};
 var pdftexWorkerPool;
 var mupdfWorkerPool;
@@ -71,11 +73,13 @@ async function compile(srcCode, params) {
   return res.pdfFile;
 }
 
-async function compileSnippet(snippet) {
+async function compileSnippet(snippet, formatName) {
+  formatName = formatName ? formatName : DEFAULT_FORMAT;
+
   let res = await pdftexWorkerPool.process(comm =>
     comm.request(
       "compileSnippet",
-      { snippet: snippet })
+      { snippet: snippet, formatName: formatName })
   );
   return res.pdfFile;
 }
@@ -98,8 +102,8 @@ async function compile2png(srcCode, scale, params, alpha) {
   return new Uint8Array(pngFile);
 }
 
-async function compileSnippet2png(snippet, scale, alpha) {
-  let pdfFile = await compileSnippet(snippet);
+async function compileSnippet2png(snippet, formatName, scale, alpha) {
+  let pdfFile = await compileSnippet(snippet, formatName);
   let pngFile = await pdf2png(pdfFile, scale, 1, alpha);
   return new Uint8Array(pngFile);
 }
@@ -124,12 +128,12 @@ async function compile2pdfURL({ srcCode, params }) {
   return toUrlFactory(() => compile(srcCode, params), 'application/pdf');
 }
 
-async function compileSnippet2pngURL({ snippet, scale, alpha }) {
-  return toUrlFactory(() => compileSnippet2png(snippet, scale, alpha), 'image/png');
+async function compileSnippet2pngURL({ snippet, formatName, scale, alpha }) {
+  return toUrlFactory(() => compileSnippet2png(snippet, formatName, scale, alpha), 'image/png');
 }
 
-async function compileSnippet2pdfURL({ snippet }) {
-  return toUrlFactory(() => compileSnippet(snippet), 'application/pdf');
+async function compileSnippet2pdfURL({ snippet, formatName }) {
+  return toUrlFactory(() => compileSnippet(snippet, formatName), 'application/pdf');
 }
 
 
