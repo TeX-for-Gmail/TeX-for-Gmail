@@ -83,7 +83,7 @@ function pdflatexMod(opts) {
 }
 
 // fileName is without extension
-function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
+function compileHelper(srcCode, fileName, outputFile, params) {
   copyBuffer(buffer, pdflatexModule.myWasmMem.buffer);
   pdflatexModule.FS.writeFile(`${fileName}.tex`, srcCode);
   pdflatexModule.callMain(['-interaction=nonstopmode'].concat(params));
@@ -91,10 +91,10 @@ function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
   return pdfFile;
 }
 
-async function compile({ srcCode, params }) {
+function compile({ srcCode, params }) {
   let fileName = "source";
   try {
-    let pdfFile = compileHelper(pdflatexModule, srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`]));
+    let pdfFile = compileHelper(srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`]));
 
     return {
       code: Communicator.SUCCESS,
@@ -109,22 +109,19 @@ async function compile({ srcCode, params }) {
   }
 }
 
-async function compileSnippet({ snippet }) {
+function compileSnippet({ snippet }) {
   let srcCode = `%&/app/bfs/format/myPreamble\n\\begin{document}${snippet}\\end{document}`;
   return compile({ srcCode: srcCode, params: [] });
 }
 
-async function makeFormat({ preamble }) {
+function makeFormat({ preamble }) {
   let fileName = "myPreamble";
 
   try {
-    await pdflatexMod()
-      .then(async m => {
-        let formatFile = await compileHelper(m, preamble, fileName, `${fileName}.fmt`,
-          ['-ini', `-jobname="${fileName}"`, String.raw`&pdflatex ${fileName}.tex\dump`]);
+    let formatFile = compileHelper(preamble, fileName, `${fileName}.fmt`,
+      ['-ini', `-jobname="${fileName}"`, String.raw`&pdflatex ${fileName}.tex\dump`]);
 
-        m.FS.writeFile(`/app/bfs/format/${fileName}.fmt`, formatFile);
-      });
+    pdflatexModule.FS.writeFile(`/app/bfs/format/${fileName}.fmt`, formatFile);
 
     return {
       code: Communicator.SUCCESS,
@@ -138,7 +135,7 @@ async function makeFormat({ preamble }) {
   }
 }
 
-function clearCache({ }) {
+function clearCache() {
   function remove(fs, p) {
     p = fs.realpathSync(p); // normalize
 

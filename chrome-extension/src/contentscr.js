@@ -16,16 +16,22 @@ async function receiveUrl(req) {
   return url;
 }
 
-async function compile2pngURL(srcCode, scale, params) {
-  return receiveUrl(() => comm.request("compile2pngURL", { srcCode: srcCode, scale: scale, params: params }));
+async function compile2pngURL(srcCode, scale, params, alpha) {
+  return receiveUrl(() =>
+    comm.request("compile2pngURL", { srcCode: srcCode, scale: scale, params: params, alpha: alpha })
+  );
 }
 
 async function compile2pdfURL(srcCode, params) {
-  return receiveUrl(() => comm.request("compile2pdfURL", { srcCode: srcCode, params: params }));
+  return receiveUrl(() =>
+    comm.request("compile2pdfURL", { srcCode: srcCode, params: params })
+  );
 }
 
-async function compileSnippet2pngURL(snippet, scale) {
-  return receiveUrl(() => comm.request("compileSnippet2pngURL", { snippet: snippet, scale: scale }));
+async function compileSnippet2pngURL(snippet, scale, alpha) {
+  return receiveUrl(() =>
+    comm.request("compileSnippet2pngURL", { snippet: snippet, scale: scale, alpha: alpha })
+  );
 }
 
 async function compileSnippet2pdfURL(snippet) {

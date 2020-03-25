@@ -63,30 +63,44 @@ function destroyMupdfWorkerPool() {
 
 async function compile(srcCode, params) {
   params = params ? params : [];
-  let res = await pdftexWorkerPool.process(comm => comm.request("compile", { srcCode: srcCode, params: params }));
+  let res = await pdftexWorkerPool.process(comm =>
+    comm.request(
+      "compile",
+      { srcCode: srcCode, params: params })
+  );
   return res.pdfFile;
 }
 
 async function compileSnippet(snippet) {
-  let res = await pdftexWorkerPool.process(comm => comm.request("compileSnippet", { snippet: snippet }));
+  let res = await pdftexWorkerPool.process(comm =>
+    comm.request(
+      "compileSnippet",
+      { snippet: snippet })
+  );
   return res.pdfFile;
 }
 
 // pdfFile is an Uint8Array
-async function pdf2png(pdfFile, scale, pageNo) {
-  let res = await mupdfWorkerPool.process(comm => comm.request("pdf2png", { pdfFile: pdfFile, scale: scale, pageNo: pageNo }, [pdfFile.buffer]));
+async function pdf2png(pdfFile, scale, pageNo, alpha) {
+  alpha = alpha ? alpha : 0;
+  let res = await mupdfWorkerPool.process(comm =>
+    comm.request(
+      "pdf2png",
+      { pdfFile: pdfFile, scale: scale, pageNo: pageNo, alpha: alpha },
+      [pdfFile.buffer])
+  );
   return res.pngFile;
 }
 
-async function compile2png(srcCode, scale, params) {
+async function compile2png(srcCode, scale, params, alpha) {
   let pdfFile = await compile(srcCode, params);
-  let pngFile = await pdf2png(pdfFile, scale, 1);
+  let pngFile = await pdf2png(pdfFile, scale, 1, alpha);
   return new Uint8Array(pngFile);
 }
 
-async function compileSnippet2png(snippet, scale) {
+async function compileSnippet2png(snippet, scale, alpha) {
   let pdfFile = await compileSnippet(snippet);
-  let pngFile = await pdf2png(pdfFile, scale, 1);
+  let pngFile = await pdf2png(pdfFile, scale, 1, alpha);
   return new Uint8Array(pngFile);
 }
 
@@ -102,16 +116,16 @@ async function toUrlFactory(f, tpe) {
   };
 }
 
-async function compile2pngURL({ srcCode, scale, params }) {
-  return toUrlFactory(() => compile2png(srcCode, scale, params), 'image/png');
+async function compile2pngURL({ srcCode, scale, params, alpha }) {
+  return toUrlFactory(() => compile2png(srcCode, scale, params, alpha), 'image/png');
 }
 
 async function compile2pdfURL({ srcCode, params }) {
   return toUrlFactory(() => compile(srcCode, params), 'application/pdf');
 }
 
-async function compileSnippet2pngURL({ snippet, scale }) {
-  return toUrlFactory(() => compileSnippet2png(snippet, scale), 'image/png');
+async function compileSnippet2pngURL({ snippet, scale, alpha }) {
+  return toUrlFactory(() => compileSnippet2png(snippet, scale, alpha), 'image/png');
 }
 
 async function compileSnippet2pdfURL({ snippet }) {

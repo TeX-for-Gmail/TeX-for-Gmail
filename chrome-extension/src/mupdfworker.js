@@ -8,7 +8,7 @@ let thisWorker = self;
 let comm = new Communicator(thisWorker);
 
 // pdfFile is an Uint8Array
-async function pdf2png({ pdfFile, scale, pageNo }) {
+async function pdf2png({ pdfFile, scale, pageNo, alpha }) {
   try {
     pageNo = pageNo ? pageNo : 1;
     let fileName = `${random_id(64)}`;
@@ -17,7 +17,7 @@ async function pdf2png({ pdfFile, scale, pageNo }) {
     var pdfDoc;
     try {
       pdfDoc = mupdf.openDocument(fileName);
-      dataUrl = mupdf.drawPageAsPNG(pdfDoc, pageNo, Math.round(96 * scale));
+      dataUrl = mupdf.drawPageAsPNG(pdfDoc, pageNo, Math.round(72 * scale), alpha);
     } finally {
       mupdf.freeDocument(pdfDoc);
       FS.unlink(fileName);
