@@ -7,10 +7,10 @@ if (typeof Module.preRun === "undefined")
 if (typeof Module.postRun === "undefined")
   Module.postRun = [];
 
-
 // Module['print'] = function (text) {};
 
 Module.preRun.push(function () {
+  Module['myWasmMem'] = wasmMemory;
   let bfs = '/app/bfs';
   let texlive = `${bfs}/texlive`;
 

@@ -8,6 +8,8 @@ importScripts("communicator.js");
 let thisWorker = self;
 let comm = new Communicator(thisWorker);
 let bfsWindow = {};
+var pdflatexModule;
+var buffer;
 BrowserFS.install(bfsWindow);
 
 BrowserFS.configure({
@@ -59,9 +61,19 @@ BrowserFS.configure({
   if (e) throw e;
   else {
     bfsWindow.fs = BrowserFS.BFSRequire('fs');
-    console.log('BFS ready!');
+    pdflatexMod().then(m => {
+      pdflatexModule = m;
+      buffer = new ArrayBuffer(pdflatexModule.myWasmMem.buffer.byteLength);
+      copyBuffer(pdflatexModule.myWasmMem.buffer, buffer);
+      console.log(`${thisWorker.name} is ready!`);
+    });
   }
 });
+
+function copyBuffer(src, target) {
+  (new Uint8Array(target)).set(new Uint8Array(src));
+  return target;
+}
 
 
 function pdflatexMod(opts) {
@@ -72,6 +84,7 @@ function pdflatexMod(opts) {
 
 // fileName is without extension
 function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
+  copyBuffer(buffer, pdflatexModule.myWasmMem.buffer);
   pdflatexModule.FS.writeFile(`${fileName}.tex`, srcCode);
   pdflatexModule.callMain(['-interaction=nonstopmode'].concat(params));
   let pdfFile = pdflatexModule.FS.readFile(`${outputFile}`);
@@ -81,8 +94,7 @@ function compileHelper(pdflatexModule, srcCode, fileName, outputFile, params) {
 async function compile({ srcCode, params }) {
   let fileName = "source";
   try {
-    let pdfFile = await pdflatexMod()
-      .then(m => compileHelper(m, srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`])));
+    let pdfFile = compileHelper(pdflatexModule, srcCode, fileName, `${fileName}.pdf`, params.concat([`${fileName}.tex`]));
 
     return {
       code: Communicator.SUCCESS,
